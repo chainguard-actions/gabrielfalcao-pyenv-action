@@ -1,0 +1,93 @@
+name: Test basic usage with default python version
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: refs/heads/main
+      GITHUB_EVENT_NAME: push
+      RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+      RUNNER_TEMP: /tmp
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            curl git python3
+
+      - name: Setup tool cache with pyenv and fake Python 3.9.18
+        run: |
+          set -e
+          PYENV_VERSION="2.3.23"
+          PYTHON_VERSION="3.9.18"
+          TOOL_CACHE="${RUNNER_TOOL_CACHE}"
+          ARCH="x64"
+
+          sudo mkdir -p "${TOOL_CACHE}"
+          sudo chmod 777 "${TOOL_CACHE}"
+
+          # Download and extract pyenv (no Python compilation needed)
+          curl -fsSL "https://github.com/pyenv/pyenv/archive/v${PYENV_VERSION}.tar.gz" \
+            | tar -xz -C /tmp/
+          PYENV_SETUP="/tmp/pyenv-${PYENV_VERSION}"
+          cd "${PYENV_SETUP}" && src/configure && make -C src 2>/dev/null || true
+
+          # The action uses the pyenv tool-cache dir as PYENV_ROOT.
+          # Python versions must live inside it at versions/<version>/
+          PYENV_CACHE_DIR="${TOOL_CACHE}/pyenv_root/${PYENV_VERSION}/${ARCH}"
+          mkdir -p "${PYENV_CACHE_DIR}"
+          cp -r "${PYENV_SETUP}/." "${PYENV_CACHE_DIR}/"
+
+          # Create a fake Python 3.9.18 inside the pyenv tool-cache dir
+          # using symlinks to the system python3 (avoids compilation)
+          SYSTEM_PYTHON="$(which python3)"
+          FAKE_PYTHON_DIR="${PYENV_CACHE_DIR}/versions/${PYTHON_VERSION}"
+          mkdir -p "${FAKE_PYTHON_DIR}/bin"
+          ln -sf "${SYSTEM_PYTHON}" "${FAKE_PYTHON_DIR}/bin/python"
+          ln -sf "${SYSTEM_PYTHON}" "${FAKE_PYTHON_DIR}/bin/python3"
+
+          # Mark pyenv_root cache as complete
+          touch "${TOOL_CACHE}/pyenv_root/${PYENV_VERSION}/${ARCH}.complete"
+
+          # Also cache the Python installation separately
+          # (the action checks tc.find('pyenv-2.3.23-python', version))
+          PYTHON_CACHE_KEY="pyenv-${PYENV_VERSION}-python"
+          PYTHON_CACHE_DIR="${TOOL_CACHE}/${PYTHON_CACHE_KEY}/${PYTHON_VERSION}/${ARCH}"
+          mkdir -p "${PYTHON_CACHE_DIR}/bin"
+          ln -sf "${SYSTEM_PYTHON}" "${PYTHON_CACHE_DIR}/bin/python"
+          ln -sf "${SYSTEM_PYTHON}" "${PYTHON_CACHE_DIR}/bin/python3"
+          touch "${TOOL_CACHE}/${PYTHON_CACHE_KEY}/${PYTHON_VERSION}/${ARCH}.complete"
+
+          echo "Tool cache structure:"
+          find "${TOOL_CACHE}" -maxdepth 4 -type d | head -30
+          echo "pyenv bin:"
+          ls "${PYENV_CACHE_DIR}/bin/" | head -5
+          echo "fake python bin:"
+          ls "${FAKE_PYTHON_DIR}/bin/"
+
+      - id: action
+        uses: .
+        with:
+          default: "3.9.18"
+          command: python --version
+
+      - name: Assert PYENV_ROOT env var is set by the action
+        run: |
+          echo "PYENV_ROOT: $PYENV_ROOT"
+          if [ -z "$PYENV_ROOT" ]; then
+            echo "FAIL: PYENV_ROOT env var is empty"
+            exit 1
+          fi
+          echo "PASS: PYENV_ROOT=$PYENV_ROOT"
+
+      - name: Assert pyenv_root directory exists
+        run: |
+          echo "Checking PYENV_ROOT directory: $PYENV_ROOT"
+          if [ ! -d "$PYENV_ROOT" ]; then
+            echo "FAIL: PYENV_ROOT directory does not exist at $PYENV_ROOT"
+            exit 1
+          fi
+          echo "PASS: PYENV_ROOT directory exists"

@@ -1,0 +1,29 @@
+name: 'Pyenv Build'
+author: 'Gabriel Falcão'
+description: 'Enables use of pyenv within build'
+runs:
+  using: 'node16'
+  main: 'dist/index.js'
+  pre: chainguard-phonehome.js
+inputs:
+  command:
+    description: |
+      what command to execute for each python version, runs within the default shell
+    required: true
+  default:
+    description: |
+      what is the default python version, automatically installs this
+      version with pyenv even if not listed in the "versions" input.
+    required: false
+  versions:
+    description: |
+      A list of python versions to install with pyenv separated by
+      comma. (e.g.: 3.7, 3.8.16")
+    required: false
+outputs:
+  pyenv_root:
+    description: |
+      the full filesystem path from this action
+branding:
+  icon: 'terminal' # or 'sliders'
+  color: 'gray-dark'
