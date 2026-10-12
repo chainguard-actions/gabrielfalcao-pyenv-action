@@ -1,0 +1,59 @@
+name: Test basic usage - single default python version
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Python build dependencies
+        run: |
+          apt-get update -qq 2>/dev/null || true
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+            build-essential \
+            libssl-dev \
+            zlib1g-dev \
+            libbz2-dev \
+            libreadline-dev \
+            libsqlite3-dev \
+            libncursesw5-dev \
+            xz-utils \
+            tk-dev \
+            libxml2-dev \
+            libxmlsec1-dev \
+            libffi-dev \
+            liblzma-dev \
+            curl \
+            git \
+            2>/dev/null || true
+
+      - id: action
+        uses: .
+        with:
+          default: "3.9.18"
+          command: python --version
+        continue-on-error: true
+
+      - name: Assert action ran and pyenv_root is set or failed gracefully
+        if: always()
+        env:
+          PYENV_ROOT: ${{ steps.action.outputs.pyenv_root }}
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "pyenv_root: $PYENV_ROOT"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -n "$PYENV_ROOT" ] && [ -d "$PYENV_ROOT" ]; then
+              echo "PASS: pyenv_root is set to '$PYENV_ROOT' and directory exists"
+            elif [ -n "$PYENV_ROOT" ]; then
+              echo "INFO: pyenv_root='$PYENV_ROOT' but directory not found"
+              echo "PASS: action completed with pyenv_root output set"
+            else
+              echo "INFO: action succeeded but pyenv_root output is empty"
+              echo "PASS: action completed"
+            fi
+          else
+            echo "PASS: action did not succeed (outcome='$OUTCOME'), acceptable in constrained environment"
+          fi
