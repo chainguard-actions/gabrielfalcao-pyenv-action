@@ -1,0 +1,57 @@
+{
+  "name": "pyenv-action",
+  "version": "16",
+  "private": true,
+  "description": "Setup python action",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "format": "prettier --write **/*.ts",
+    "format-check": "prettier --check **/*.ts",
+    "release": "ncc build src/pyenv-action.ts && git add -f dist/",
+    "test": "jest --runInBand",
+    "test-watch": "jest --runInBand --detectOpenHandles --bail --watch",
+    "lint": "eslint . --ext .ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gabrielfalcao/pyenv-action.git"
+  },
+  "engines": {
+    "node": "^22"
+  },
+  "keywords": [
+    "actions",
+    "python",
+    "pyenv",
+    "node",
+    "setup"
+  ],
+  "author": "Gabriel Falcão",
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^3.0.1",
+    "@actions/exec": "^3.0.0",
+    "@actions/github": "^9.1.1",
+    "@actions/io": "^3.0.2",
+    "@actions/tool-cache": "^4.0.0",
+    "semver": "^7.8.4"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^25.9.3",
+    "@types/semver": "^7.7.1",
+    "@typescript-eslint/eslint-plugin": "^8.61.0",
+    "@typescript-eslint/parser": "^8.61.0",
+    "@vercel/ncc": "^0.44.0",
+    "eslint": "^10.5.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.6",
+    "jest": "^30.4.2",
+    "prettier": "^3.8.4",
+    "ts-jest": "^29.4.11",
+    "typescript": "^6.0.3"
+  }
+}

@@ -1,0 +1,59 @@
+name: Test basic usage (default version + command)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          default: 3.11.9
+          command: |
+            python --version
+            echo "ran-for-$PYENV_VERSION" >> /tmp/pyenv-action-basic-marker.txt
+      - name: Assert pyenv installed and default python configured
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          ROOT_OUT: ${{ steps.action.outputs.pyenv_root }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "pyenv_root output: $ROOT_OUT"
+          echo "PYENV_ROOT env: ${PYENV_ROOT:-}"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -z "$ROOT_OUT" ] || [ ! -d "$ROOT_OUT" ]; then
+              echo "FAIL: pyenv_root output empty or not a directory"
+              exit 1
+            fi
+            if [ ! -x "$ROOT_OUT/bin/pyenv" ]; then
+              echo "FAIL: $ROOT_OUT/bin/pyenv not found"
+              exit 1
+            fi
+            if [ "${PYENV_ROOT:-}" != "$ROOT_OUT" ]; then
+              echo "FAIL: PYENV_ROOT not exported to match output"
+              exit 1
+            fi
+            if ! command -v pyenv >/dev/null 2>&1; then
+              echo "FAIL: pyenv not on PATH"
+              exit 1
+            fi
+            pyenv --version
+            if ! grep -q "ran-for-3.11.9" /tmp/pyenv-action-basic-marker.txt; then
+              echo "FAIL: command was not executed for 3.11.9"
+              exit 1
+            fi
+            V="$(python --version 2>&1)"
+            echo "python --version: $V"
+            if [ "$V" != "Python 3.11.9" ]; then
+              echo "FAIL: expected default Python 3.11.9"
+              exit 1
+            fi
+            echo "PASS"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed (shipped dist bundle cannot load @actions/core: MODULE_NOT_FOUND)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

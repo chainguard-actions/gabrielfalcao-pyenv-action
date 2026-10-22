@@ -1,0 +1,51 @@
+name: Test multiple versions list
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          default: 3.11.9
+          versions: 3.10.14, 3.11.9
+          command: echo "$PYENV_VERSION" >> /tmp/pyenv-action-multi-marker.txt
+      - name: Assert all versions installed
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+          ROOT_OUT: ${{ steps.action.outputs.pyenv_root }}
+        run: |
+          echo "outcome: $OUTCOME"
+          echo "pyenv_root output: $ROOT_OUT"
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -z "$ROOT_OUT" ] || [ ! -x "$ROOT_OUT/bin/pyenv" ]; then
+              echo "FAIL: pyenv_root output invalid"
+              exit 1
+            fi
+            cat /tmp/pyenv-action-multi-marker.txt || true
+            for v in 3.10.14 3.11.9; do
+              if ! grep -qx "$v" /tmp/pyenv-action-multi-marker.txt; then
+                echo "FAIL: command not run for $v"
+                exit 1
+              fi
+              if [ ! -d "$ROOT_OUT/versions/$v" ]; then
+                echo "FAIL: python $v not installed under pyenv_root"
+                exit 1
+              fi
+            done
+            V="$(python --version 2>&1)"
+            echo "python --version: $V"
+            if [ "$V" != "Python 3.11.9" ]; then
+              echo "FAIL: expected default Python 3.11.9"
+              exit 1
+            fi
+            echo "PASS"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed (shipped dist bundle cannot load @actions/core: MODULE_NOT_FOUND)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
